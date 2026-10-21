@@ -31,6 +31,7 @@
 #include <TCollection_AsciiString.hxx>
 #include <TColStd_SequenceOfInteger.hxx>
 #include <JtData_Object.hxx>
+#include <JtElement_MetaData_PMIManager.hxx>
 
 using namespace std;
 
@@ -675,7 +676,10 @@ Standard_Boolean JtData_Model::readElement(JtData_Reader &theReader,
       return Standard_False;
   }
 
-  if (!theObject->Read(theReader))
+  // PMI managers keep their raw data, which the caller parses.
+  const Handle(JtElement_MetaData_PMIManager) aPMI = Handle(JtElement_MetaData_PMIManager)::DownCast(theObject);
+  if (!(aPMI.IsNull() ? theObject->Read(theReader)
+                      : aPMI->ReadData(theReader, anElemStart + anElemLength - theReader.GetPosition())))
     return Standard_False;
 
   // Check the loaded data length

@@ -426,6 +426,16 @@ Standard_Boolean JtElement_MetaData_PMIManager::Read (JtData_Reader& theReader)
 }
 
 //=======================================================================
+//function : ReadData
+//purpose  : Keep the element data unparsed
+//=======================================================================
+Standard_Boolean JtElement_MetaData_PMIManager::ReadData (JtData_Reader& theReader, Standard_Size theLength)
+{
+  return myData.Allocate (Jt_I32 (theLength))
+      && theReader.ReadBytes (myData.Data(), theLength);
+}
+
+//=======================================================================
 //function : Dump
 //purpose  :
 //=======================================================================

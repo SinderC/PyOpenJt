@@ -193,6 +193,12 @@ public:
   //! Dump this entity.
   Standard_EXPORT Standard_Integer Dump (Standard_OStream& theStream) const Standard_OVERRIDE;
 
+  //! Read the element's data (after the object ID) without parsing it.
+  Standard_EXPORT Standard_Boolean ReadData (JtData_Reader& theReader, Standard_Size theLength);
+
+  //! Raw element data, as read by ReadData.
+  const Jt_String& Data() const { return myData; }
+
   //! Entities.
   const Entities& GetEntities() const { return myEntities; }
 
@@ -210,6 +216,7 @@ protected:
   JtData_Vector <UserAttribute          , Jt_I32> myUserAttributes;
   JtData_Vector <TCollection_AsciiString, Jt_I32> myStringTable;
   JtData_Vector <ModelView              , Jt_I32> myModelViews;
+  Jt_String myData;
 };
 
 DEFINE_STANDARD_HANDLE(JtElement_MetaData_PMIManager, JtData_Object)
