@@ -92,9 +92,34 @@ Standard_Boolean JtNode_Partition::Load()
   if (aRootNode.IsNull())
     return Standard_False;
 
-  myChildren = aRootNode->Children();
+  setChildren (aRootNode->Children());
 
   return Standard_True;
+}
+
+//=======================================================================
+//function : ShareLoaded
+//purpose  : Bind the children of another partition that loaded the same file
+//=======================================================================
+Standard_Boolean JtNode_Partition::ShareLoaded (const Handle(JtNode_Partition)& theOther)
+{
+  if (theOther.IsNull() || theOther.get() == this)
+    return Standard_False;
+
+  setChildren (theOther->Children());
+  return Standard_True;
+}
+
+//=======================================================================
+//function : setChildren
+//purpose  : Element by element: copying the vector would not count this node as a holder of the children
+//=======================================================================
+void JtNode_Partition::setChildren (const VectorOfObjects& theChildren)
+{
+  myChildren.Free();
+  myChildren.Allocate (theChildren.Count());
+  for (VectorOfObjects::SizeType i = 0; i < theChildren.Count(); i++)
+    myChildren[i] = theChildren[i];
 }
 
 //=======================================================================

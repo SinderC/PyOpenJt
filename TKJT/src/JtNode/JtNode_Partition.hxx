@@ -35,6 +35,9 @@ public:
   //! Load the referenced JT file and bind its LSG to this node.
   Standard_EXPORT Standard_Boolean Load();
 
+  //! Bind the children of another partition that loaded the same file; they are shared, not read again.
+  Standard_EXPORT Standard_Boolean ShareLoaded (const Handle(JtNode_Partition)& theOther);
+
   //! Unbind children from this node and unload the referenced JT file.
   Standard_EXPORT void Unload();
 
@@ -45,6 +48,8 @@ public:
   DEFINE_OBJECT_CLASS (JtNode_Partition)
 
 protected:
+  void setChildren (const VectorOfObjects& theChildren);
+
   Handle(JtData_Model)       myModel;
   TCollection_ExtendedString myFileName;
 };
