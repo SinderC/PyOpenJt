@@ -33,10 +33,11 @@ Standard_Boolean JtNode_Shape_Base::Read (JtData_Reader& theReader)
 
   Jt_I16 aVersion;
   if (theReader.Model()->MajorVersion() > 8
-  && !theReader.ReadI16 (aVersion))
+  && !theReader.ReadVersion (aVersion))
     return Standard_False;
 
-  return theReader.ReadUniformStruct<Jt_F32> (myReservedBnd)
+  // JT 10 dropped the reserved bounding box.
+  return (theReader.Model()->MajorVersion() >= 10 || theReader.ReadUniformStruct<Jt_F32> (myReservedBnd))
       && theReader.ReadUniformStruct<Jt_F32> (myUntransBnd)
       && theReader.ReadF32   (myArea)
       && theReader.ReadArray (myVertexRange)

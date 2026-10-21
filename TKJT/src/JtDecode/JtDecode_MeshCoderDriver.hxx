@@ -58,6 +58,9 @@ public:
   
   //! Decode and store input data.
   Standard_EXPORT void SetInputData (InputData& theData);
+
+  //! JT 10 stores the context-8 face attribute masks' upper half as one 32-bit array.
+  void SetJt10 (bool theIsJt10) { _isJt10 = theIsJt10; }
   
   //! Decodes the mesh.
   Standard_EXPORT void Decode (IndicesVec* theVertexIndices, IndicesVec* theNormalIndices);
@@ -97,6 +100,7 @@ private:
   int32_t _iSplitPosReadPos;
 
   JtDecode_MeshDecoder* _pMeshDecoder;
+  bool                  _isJt10 = false;
 };
 
 #endif // _JtDecode_MeshCoderDriver_HeaderFile

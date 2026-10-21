@@ -62,14 +62,16 @@ Standard_Boolean JtAttribute_Material::Read (JtData_Reader& theReader)
     return Standard_False;
 
   if (theReader.Model()->MajorVersion() > 8
-  && !theReader.ReadI16 (myVersion))
+  && !theReader.ReadVersion (myVersion))
     return Standard_False;
 
+  // JT 10 always stores full RGBA colours.
+  const Standard_Boolean isCommonRGB = theReader.Model()->MajorVersion() < 10;
   if (!theReader.ReadU16 (myDataFlags)
-   || !readColor (theReader, myAmbientColor , (myDataFlags & 3) == 3)
+   || !readColor (theReader, myAmbientColor , isCommonRGB && (myDataFlags & 3) == 3)
    || !readColor (theReader, myDiffuseColor)
-   || !readColor (theReader, mySpecularColor, (myDataFlags & 5) == 5)
-   || !readColor (theReader, myEmissionColor, (myDataFlags & 9) == 9)
+   || !readColor (theReader, mySpecularColor, isCommonRGB && (myDataFlags & 5) == 5)
+   || !readColor (theReader, myEmissionColor, isCommonRGB && (myDataFlags & 9) == 9)
    || !theReader.ReadF32 (myShininess))
     return Standard_False;
 

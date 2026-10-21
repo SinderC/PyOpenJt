@@ -58,7 +58,8 @@ JtDecode_VertexData::Handle JtDecode_VertexData::LoadCompressedCoords (JtData_Re
   if (aQuantizerData.X.bits)
     aData = new JtDecode_VertexData_Quantized (aQuantizerData, aNbComponents, JtDecode_Unpack_Lag1);
   else
-    aData = new JtDecode_VertexData_ExpMant (aNbComponents, JtDecode_Unpack_Lag1);
+    aData = new JtDecode_VertexData_ExpMant (aNbComponents, JtDecode_Unpack_Lag1,
+                                             theReader.Model()->MajorVersion() >= 10);
 
   // Load encoded data
   if (!aData->load (theReader, &JtDecode_Int32CDP::Load2, aVertexCount))
@@ -109,7 +110,8 @@ JtDecode_VertexData::Handle JtDecode_VertexData::LoadCompressedNormals (JtData_R
   if (aNbBits)
     aData = new JtDecode_VertexData_Deering (aNbBits);
   else
-    aData = new JtDecode_VertexData_ExpMant (aNbComponents);
+    aData = new JtDecode_VertexData_ExpMant (aNbComponents, JtDecode_Unpack_Null,
+                                             theReader.Model()->MajorVersion() >= 10);
 
   // Load encoded data
   if (!aData->load (theReader, &JtDecode_Int32CDP::Load2, aNormalsCount))

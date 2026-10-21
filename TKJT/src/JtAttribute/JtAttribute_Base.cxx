@@ -38,11 +38,13 @@ Standard_Boolean JtAttribute_Base::Read (JtData_Reader& theReader)
     return Standard_False;
 
   if (theReader.Model()->MajorVersion() > 8
-  && !theReader.ReadI16 (myVersion))
+  && !theReader.ReadVersion (myVersion))
     return Standard_False;
 
+  Jt_U32 aFieldFinalFlags; // JT 10
   return theReader.ReadU8  (myStateFlags)
-      && theReader.ReadU32 (myFieldInhibitFlags);
+      && theReader.ReadU32 (myFieldInhibitFlags)
+      && (theReader.Model()->MajorVersion() < 10 || theReader.ReadU32 (aFieldFinalFlags));
 }
 
 //=======================================================================

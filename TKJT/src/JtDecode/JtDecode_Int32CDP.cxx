@@ -20,6 +20,7 @@
 #include <JtDecode_ProbContext.hxx>
 
 #include <JtDecode_Int32CDP_Null.hxx>
+#include <JtDecode_Int32CDP_MTF.hxx>
 #include <JtDecode_Int32CDP_Bitlength.hxx>
 #include <JtDecode_Int32CDP_Bitlength2.hxx>
 #include <JtDecode_Int32CDP_Huffman.hxx>
@@ -170,6 +171,20 @@ JtDecode_Int32CDP::EncodedDataHandle JtDecode_Int32CDP::loadCDP2 (JtData_Reader&
       new JtDecode_Int32CDP_Chopper (aMSBData, aLSBData, aChop, aSpan, aBias));
   }
 
+  // Move-to-front pseudo-codec (JT 10): window values and window offsets
+  if (aCodec == 5)
+  {
+    JtDecode_Int32CDP aValues, anOffsets;
+    if (!aValues.Load2 (theReader) || !anOffsets.Load2 (theReader))
+      return EncodedDataHandle();
+    if (anOffsets.GetOutValCount() != aValueCount)
+    {
+      ALARM ("Error: Move-to-front data size mismatch");
+      return EncodedDataHandle();
+    }
+    return EncodedDataHandle (new JtDecode_Int32CDP_MTF (aValues, anOffsets));
+  }
+
   // Null, bitlength or arithmetic codec: read CodeText length
   Jt_I32 aCodeTextLength;
   if (!theReader.ReadI32 (aCodeTextLength) || aCodeTextLength <= 0)
@@ -190,7 +205,7 @@ JtDecode_Int32CDP::EncodedDataHandle JtDecode_Int32CDP::loadCDP2 (JtData_Reader&
   switch (aCodec)
   {
   case 1: // Bitlength codec
-    aData = new JtDecode_Int32CDP_Bitlength2 (theReader);
+    aData = new JtDecode_Int32CDP_Bitlength2 (theReader, theReader.Model()->MajorVersion() >= 10);
     break;
 
   case 3: // Arithmetic codec
@@ -213,20 +228,27 @@ JtDecode_Int32CDP::EncodedDataHandle JtDecode_Int32CDP::loadCDP2 (JtData_Reader&
   if (aCodec == 3)
   {
     // read probability context
+    const bool isJt10 = theReader.Model()->MajorVersion() >= 10;
     JtData_Vector<JtDecode_ProbContextI32> aProbContexts (1);
     {
       JtDecode_BitReader::Raw aContextReader (theReader);
-      if (!aProbContexts[0].ReadMk2 (aContextReader))
+      if (!(isJt10 ? aProbContexts[0].ReadJt10 (aContextReader)
+                   : aProbContexts[0].ReadMk2  (aContextReader)))
         return EncodedDataHandle();
     }
+    // JT 10 writes out-of-band data only when the context has an escape symbol
+    const bool hasOOBData = !isJt10 || aProbContexts[0].HasEscape();
     aData->SetProbContexts (aProbContexts.Move());
 
     // load out-of-band data
-    JtDecode_Int32CDP anOOBData;
-    if (!anOOBData.Load2 (theReader))
-      return EncodedDataHandle();
+    if (hasOOBData)
+    {
+      JtDecode_Int32CDP anOOBData;
+      if (!anOOBData.Load2 (theReader))
+        return EncodedDataHandle();
 
-    aData->SetOOBData (anOOBData);
+      aData->SetOOBData (anOOBData);
+    }
   }
 
   return EncodedDataHandle (aData);

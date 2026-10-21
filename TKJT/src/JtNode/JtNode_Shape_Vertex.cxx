@@ -48,9 +48,12 @@ Standard_Boolean JtNode_Shape_Vertex::Read (JtData_Reader &theReader)
   else
   {
     JtElement_ShapeLOD_Vertex::VertexBinding2 aVertexBinding;
-    if (!theReader.ReadI16 (aVersion)
+    if (!theReader.ReadVersion (aVersion)
      || !aVertexBinding.Read (theReader))
       return Standard_False;
+    // JT 10 has no quantization parameters here; unread element bytes are skipped.
+    if (theReader.Model()->MajorVersion() >= 10)
+      return Standard_True;
   }
 
   JtElement_ShapeLOD_Vertex::QuantizationParams aQuantizationParams;

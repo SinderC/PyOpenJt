@@ -19,6 +19,7 @@
 #include <NCollection_Handle.hxx>
 
 #include <JtData_Reader.hxx>
+#include <JtData_Message.hxx>
 #include <JtData_Inflate.hxx>
 
 #include <JtDecode_Int32CDP.hxx>
@@ -56,18 +57,22 @@ class JtElement_ShapeLOD_Vertex::MeshDecodeTask
   NCollection_Handle<JtDecode_MeshCoderDriver::InputData> myData;
   IndicesVec* myVertexIndicesPtr;
   IndicesVec* myNormalIndicesPtr;
+  bool        myIsJt10;
 
 public:
   MeshDecodeTask (JtData_SingleHandle<JtDecode_MeshCoderDriver::InputData> theData,
                   IndicesVec& theVertexIndices,
-                  IndicesVec& theNormalIndices)
+                  IndicesVec& theNormalIndices,
+                  bool        theIsJt10)
     : myData             (theData)
     , myVertexIndicesPtr (&theVertexIndices)
-    , myNormalIndicesPtr (&theNormalIndices) {}
+    , myNormalIndicesPtr (&theNormalIndices)
+    , myIsJt10           (theIsJt10) {}
 
   void operator ()() const
   {
     JtDecode_MeshCoderDriver aMeshCoderDriver;
+    aMeshCoderDriver.SetJt10      (myIsJt10);
     aMeshCoderDriver.SetInputData (const_cast <JtDecode_MeshCoderDriver::InputData&> (*myData));
     aMeshCoderDriver.Decode       (myVertexIndicesPtr, myNormalIndicesPtr);
   }
@@ -259,11 +264,34 @@ Standard_Boolean JtElement_ShapeLOD_Vertex::readVertexShapeLODData (
     Jt_I32 aTriID;
     Jt_I16 aVersion4;
     if (!JtElement_ShapeLOD_Base::Read (theReader)
-     || !theReader.ReadI16 (aVersion)
-     || !aVertexBinding.Read (theReader)
-     || !theReader.ReadI16 (aMeshVersion)
+     || !theReader.ReadVersion (aVersion)
+     || !aVertexBinding.Read (theReader))
+    {
+      return Standard_False;
+    }
+
+    // JT 10 files wrap the TopoMesh data in an embedded logical element header (length, object
+    // type ID, base type, object ID). ISO 14306-4 does not describe it; seen in NX-written files.
+    if (theReader.Model()->MajorVersion() >= 10)
+    {
+      static const Jt_GUID aTopoMeshGUID ("f830a5ad-be4c-4fbc-9b-5f-b9-26-92-78-d2-e1");
+      Jt_I32  aLength, anObjectID;
+      Jt_GUID aGUID;
+      Jt_U8   aBaseType;
+      if (!theReader.ReadI32  (aLength)
+       || !theReader.ReadGUID (aGUID)
+       || !(aGUID == aTopoMeshGUID)
+       || !theReader.ReadU8   (aBaseType)
+       || !theReader.ReadI32  (anObjectID))
+      {
+        ALARM ("Error: Unsupported JT 10 TopoMesh layout");
+        return Standard_False;
+      }
+    }
+
+    if (!theReader.ReadVersion (aMeshVersion)
      || !theReader.ReadI32 (aTriID)
-     || !theReader.ReadI16 (aVersion4))
+     || !theReader.ReadVersion (aVersion4))
     {
       return Standard_False;
     }
@@ -479,7 +507,8 @@ Standard_Boolean JtElement_ShapeLOD_Vertex::readTopologicallyCompressedData (JtD
     return Standard_False;
 
   IndicesVec aVertexIndices, aNormalIndices;
-  aDecodeTasks.Run (MeshDecodeTask (aMeshData, aVertexIndices, aNormalIndices));
+  aDecodeTasks.Run (MeshDecodeTask (aMeshData, aVertexIndices, aNormalIndices,
+                                    theReader.Model()->MajorVersion() >= 10));
 
   ///////////////////////////////////////////////////////////////////
   // Topologically Compressed Vertex Records data collection

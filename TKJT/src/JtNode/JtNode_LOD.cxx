@@ -33,8 +33,12 @@ Standard_Boolean JtNode_LOD::Read (JtData_Reader& theReader)
 
   myVersion = 0;
   if (theReader.Model()->MajorVersion() > 8
-  && !theReader.ReadI16 (myVersion))
+  && !theReader.ReadVersion (myVersion))
     return Standard_False;
+
+  // JT 10 dropped the reserved fields.
+  if (theReader.Model()->MajorVersion() >= 10)
+    return Standard_True;
 
   Jt_VecF32 aReservedVec;
   Jt_F32    aReservedVal;

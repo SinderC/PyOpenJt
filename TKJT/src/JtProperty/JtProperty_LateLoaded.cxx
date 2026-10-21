@@ -33,7 +33,7 @@ Standard_Boolean JtProperty_LateLoaded::Read (JtData_Reader& theReader)
 
   Jt_I16 aVersion;
   if (theReader.Model()->MajorVersion() > 8
-  && !theReader.ReadI16 (aVersion))
+  && !theReader.ReadVersion (aVersion))
     return Standard_False;
 
   Jt_GUID aGUID;
@@ -50,7 +50,7 @@ Standard_Boolean JtProperty_LateLoaded::Read (JtData_Reader& theReader)
   {
     Jt_I32 aPayloadObjectID, aReserved;
     if (!theReader.ReadI32 (aPayloadObjectID)
-     || !theReader.ReadI32 (aReserved))
+     || (aVersion < 2 && !theReader.ReadI32 (aReserved))) // version 2 (JT 10) has no reserved field
     {
       return Standard_False;
     }

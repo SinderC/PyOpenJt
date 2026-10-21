@@ -15,7 +15,9 @@
 // on <http://www.gnu.org/licenses/>.
 
 #include <JtData_Reader.hxx>
+#include <JtData_Model.hxx>
 #include <string>
+#include <cstring>
 
 //=======================================================================
 //function : JtData_Reader
@@ -40,9 +42,11 @@ JtData_Reader::~JtData_Reader() {}
 
 const void* JtData_Reader::LoadBytes (const Standard_Size theLength)
 {
-  void* aBuffer = Standard::Allocate (theLength);
+  // Zeroed padding: the bit readers fetch whole 32-bit words and may peek one past the data.
+  void* aBuffer = Standard::Allocate (theLength + 8);
   if (!aBuffer)
     return 0L;
+  memset (static_cast<char*> (aBuffer) + theLength, 0, 8);
 
   if (!Read (aBuffer, theLength))
   {
@@ -62,6 +66,22 @@ void JtData_Reader::UnloadBytes (const void* theAddress)
 {
   if (theAddress)
     Standard::Free (const_cast <void*&> (theAddress));
+}
+
+//=======================================================================
+//function : ReadVersion
+//purpose  :
+//=======================================================================
+Standard_Boolean JtData_Reader::ReadVersion (Jt_I16& theVersion)
+{
+  if (myModel->MajorVersion() < 10)
+    return ReadI16 (theVersion);
+
+  Jt_U8 aVersion;
+  if (!ReadU8 (aVersion))
+    return Standard_False;
+  theVersion = aVersion;
+  return Standard_True;
 }
 
 //=======================================================================

@@ -15,6 +15,7 @@
 // on <http://www.gnu.org/licenses/>.
 
 #include <JtDecode_MeshCoderDriver.hxx>
+#include <JtData_Model.hxx>
 
 #include <JtData_VectorRef.hxx>
 
@@ -26,6 +27,7 @@
 
 //#define NO_JT_MULTITHREADING
 #include <JtData_Parallel.hxx>
+#include <Standard_Failure.hxx>
 #include <JtDecode_Int32CDPScheduler.hxx>
 
 #ifdef _MSC_VER
@@ -784,6 +786,8 @@ int32_t JtDecode_MeshCodec::activateF (int32_t iVtx, int32_t iVSlot)
   int32_t jFSlot;
   // ioFace might return -2 as an error condition
   int32_t iFace = ioFace (iVtx, iVSlot);
+  if (iFace < -1)
+    throw Standard_Failure ("JT mesh topology decoding failed");
 
   if (iFace >= 0) // If a new active face
   {
@@ -798,6 +802,8 @@ int32_t JtDecode_MeshCodec::activateF (int32_t iVtx, int32_t iVSlot)
   {
     iFace = ioSplitFace (iVtx, iVSlot); // v's index in ActiveSet, returns v
     jFSlot = ioSplitPos (iVtx, iVSlot); // Position of iVtx in v
+    if (iFace < 0 || jFSlot < 0) // corrupt or mis-decoded split (see ISO 14306 Annex E)
+      throw Standard_Failure ("JT mesh topology decoding failed");
     _pDstVFM->setVtxFace (iVtx, iVSlot, iFace);
     addVtxToFace (iVtx, iVSlot, iFace, jFSlot);
   }
@@ -1198,9 +1204,13 @@ JtDecode_MeshCoderDriver::LoadInputData (JtData_Reader& theReader)
 {
   InputData::Handle aData (new InputData);
 
+  // JT 10 has a single "Face Attribute Mask 8 (32 MSBs)" array where JT 9 had 30 + 4 MSB arrays.
+  const bool isJt10 = theReader.Model()->MajorVersion() >= 10;
   JtData_VectorRef<JtDecode_Int32CDP> aVectorRef (*aData);
   for (Standard_Size i = 0; i < aVectorRef.Count(); i++)
   {
+    if (isJt10 && &aVectorRef[i] == &aData->_faceAttributeMask8_4)
+      continue;
     if (!aVectorRef[i].Load2 (theReader))
       return (InputData::Handle)0;
   }
@@ -1394,7 +1404,12 @@ int64_t JtDecode_MeshCoderDriver::_nextAttrMaskSymbol (int32_t iCCntx)
     eSym = _vvuOutAttrMasks[iCCntx][readpos];
   }
 
-  if (iCCntx == 7)
+  if (iCCntx == 7 && _isJt10)
+  {
+    if (readpos < _faceAttributeMask8_30.Count())
+      eSym = (int64_t) (((uint64_t) (uint32_t) _faceAttributeMask8_30[readpos] << 32) | (uint32_t) eSym);
+  }
+  else if (iCCntx == 7)
   {
     eSym |= (((int64_t) _faceAttributeMask8_4 [readpos]) << 30) +
             (((int64_t) _faceAttributeMask8_30[readpos]) << 30);

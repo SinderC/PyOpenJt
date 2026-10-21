@@ -24,9 +24,12 @@ class JtDecode_VertexData_ExpMant : public JtDecode_VertexData
 {
 public:
   //! Constructor.
+  //! theIsBinary: JT 10 stores each component as one array of raw IEEE-754 bits
+  //! ("Binary Vertex Coords/Normals") instead of separate exponent and mantissa arrays.
   Standard_EXPORT JtDecode_VertexData_ExpMant (
     const Standard_Size theNbComponents,
-    JtDecode_Unpack& theUnpacker = JtDecode_Unpack_Null);
+    JtDecode_Unpack& theUnpacker = JtDecode_Unpack_Null,
+    const bool       theIsBinary = false);
 
 protected:
   //! Get expected count of output components.
@@ -34,6 +37,8 @@ protected:
 
   //! Decoding method.
   Standard_EXPORT void decode (Decoded::Ref theResults) Standard_OVERRIDE;
+
+  bool myIsBinary;
 };
 
 #endif

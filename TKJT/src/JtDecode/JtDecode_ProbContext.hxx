@@ -50,6 +50,18 @@ public:
   //! Read the probability table for Mark II codec.
   Standard_Boolean ReadMk2   (JtDecode_BitReader::Raw& theReader);
 
+  //! Read the JT 10 (ISO 14306-4) probability table: entries carry an escape flag instead of a symbol.
+  Standard_Boolean ReadJt10  (JtDecode_BitReader::Raw& theReader);
+
+  //! Whether an entry is the escape symbol, i.e. out-of-band values follow (JT 10).
+  Standard_Boolean HasEscape() const
+  {
+    for (Standard_Size i = 0; i < myEntries.Count(); i++)
+      if (myEntries[i].symbol == -2)
+        return Standard_True;
+    return Standard_False;
+  }
+
   //! Fetch the entry.
   const Entry& operator[] (Standard_Size theIndex) const { return myEntries[theIndex]; }
 

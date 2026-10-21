@@ -20,17 +20,31 @@
 #include <JtData_Parallel.hxx>
 
 JtDecode_VertexData_ExpMant::JtDecode_VertexData_ExpMant (const Standard_Size theNbComponents,
-                                                                JtDecode_Unpack& theUnpacker)
-  : JtDecode_VertexData (theNbComponents * 2, theUnpacker) {}
+                                                                JtDecode_Unpack& theUnpacker,
+                                                          const bool          theIsBinary)
+  : JtDecode_VertexData (theNbComponents * (theIsBinary ? 1 : 2), theUnpacker), myIsBinary (theIsBinary) {}
 
 Standard_Integer JtDecode_VertexData_ExpMant::getOutCompCount (Standard_Size thePackageCount)
 {
-  return static_cast<Standard_Integer>(thePackageCount) / 2;
+  return static_cast<Standard_Integer>(thePackageCount) / (myIsBinary ? 1 : 2);
 }
 
 void JtDecode_VertexData_ExpMant::decode (Decoded::Ref theResults)
 {
   JtData_Parallel::TaskGroup aDecodeTasks;
+  if (myIsBinary)
+  {
+    for (Decoded::CompCountType j = 0; j < theResults.CompCount(); j++)
+    {
+      Jt_VecU32 aBits;
+      aDecodeTasks.Run (getDecodingFunctor (j, aBits));
+      aDecodeTasks.Wait();
+      for (Decoded::SizeType i = 0; i < theResults.Count(); i++)
+        reinterpret_cast <uint32_t&> (theResults[i][j]) = aBits[i];
+    }
+    return;
+  }
+
   for (Decoded::CompCountType j = 0; j < theResults.CompCount(); j++)
   {
     Jt_VecU32 anExp, aMant;

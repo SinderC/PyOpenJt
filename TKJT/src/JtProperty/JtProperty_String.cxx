@@ -33,7 +33,7 @@ Standard_Boolean JtProperty_String::Read (JtData_Reader& theReader)
 
   Jt_I16 aVersion;
   if (theReader.Model()->MajorVersion() > 8
-  && !theReader.ReadI16 (aVersion))
+  && !theReader.ReadVersion (aVersion))
     return Standard_False;
 
   return theReader.ReadMbString (myValue);

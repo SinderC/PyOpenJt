@@ -73,6 +73,7 @@ public:
 
   //! Return minor version of Jt file.
   Standard_Integer                  MinorVersion() const { return myMinorVersion; }
+  const TCollection_ExtendedString& MeasurementUnits() const { return myUnits; }
 
   struct TocEntry {
       TocEntry(const Jt_GUID& _GUID, uint64_t _Offset, uint32_t _Length, int _Type) :GUID(_GUID), Offset(_Offset), Length(_Length), Type(_Type) {}
@@ -124,6 +125,7 @@ protected:
 
   Standard_Integer           myMajorVersion;
   Standard_Integer           myMinorVersion;
+  mutable TCollection_ExtendedString myUnits; //!< first JT_PROP_MEASUREMENT_UNITS value
 
   NCollection_DataMap <Jt_GUID, Jt_U64, Jt_GUID> myTOC;
 

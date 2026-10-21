@@ -30,7 +30,7 @@ Standard_Boolean JtElement_ShapeLOD_TriStripSet::Read (JtData_Reader& theReader)
 {
   Jt_I16 aVersion;
   if (!readVertexShapeLODData (theReader, Standard_True)
-   || !theReader.ReadI16 (aVersion))
+   || !theReader.ReadVersion (aVersion))
     return Standard_False;
 
   if (theReader.Model()->MajorVersion() < 9)

@@ -31,12 +31,18 @@ Standard_Boolean JtNode_Partition::Read (JtData_Reader& theReader)
   myModel = theReader.Model();
 
   Jt_I32 aFlags;
+  Jt_I16 aVersion; // JT 10 only: U8 version number (not listed in the ISO 14306-4 text, present in files)
   if (!JtNode_Group::Read     (theReader)
+   || (theReader.Model()->MajorVersion() >= 10 && !theReader.ReadVersion (aVersion))
    || !theReader.ReadI32      (aFlags)
    || !theReader.ReadMbString (myFileName))
   {
     return Standard_False;
   }
+
+  // JT 10 reordered the bounding boxes; nothing below is used, and unread element bytes are skipped.
+  if (theReader.Model()->MajorVersion() >= 10)
+    return Standard_True;
 
   const Standard_Boolean hasUntransformedBndBox = ((aFlags & 1) != 0);
 

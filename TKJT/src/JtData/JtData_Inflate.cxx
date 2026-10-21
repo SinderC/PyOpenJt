@@ -165,6 +165,8 @@ Standard_Size JtData_Inflate::read (Bytef* theBuffer, Standard_Size theLength)
     // return 0 in case of a failure
     switch (ret)
     {
+    case Z_STREAM_END: // all data inflated; stop even if (padding) input bytes remain
+      return theLength - myZStream.avail_out;
     case Z_NEED_DICT:
     case Z_STREAM_ERROR:
     case Z_DATA_ERROR:

@@ -121,6 +121,9 @@ public:
   //! Read a 2-byte character string into a std::wstring
   Standard_Boolean ReadMbString(std::wstring& theString);
 
+  //! Read an element version number: I16 up to JT 9, one byte (U8/I8) from JT 10 (ISO 14306-4).
+  Standard_EXPORT Standard_Boolean ReadVersion (Jt_I16& theVersion);
+
   Standard_Boolean ReadObject(char16_t &theObject)
   {
     Jt_I16 theValue;

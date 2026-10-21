@@ -328,9 +328,10 @@ Handle(JtData_Object) JtData_Model::readSegment(std::ifstream &theFile,
   Standard_Size aReaderPos = aReader.GetPosition();
   if (aBytesSpec < aReaderPos)
   {
-    Standard_Size aBytesRest = aBytesSpec - aReaderPos;
-    ALARM("Error: " + std::to_string(aBytesRest) + " extra bytes were read after end of the segment");
-    return Handle(JtData_Object)();
+    // Some writers (TechSoft3D JT 8.1) declare segments one byte short of their compressed
+    // stream. The data was read and checksummed by zlib, so only warn.
+    Standard_Size aBytesOver = aReaderPos - aBytesSpec;
+    WARNING("Warning: " + std::to_string(aBytesOver) + " bytes were read after end of the segment");
   }
   if (aBytesSpec > aReaderPos)
   {
@@ -544,6 +545,10 @@ Standard_Boolean JtData_Model::readLSGData(JtData_Reader &theReader,
                   Handle(JtProperty_String)::DownCast(aKeyProperty);
               if (!aKeyStringProp.IsNull() && aKeyStringProp->Value() == anObjectNameKey)
                 anObject->BindName(aStringProp->Value());
+              else if (!aKeyStringProp.IsNull() && myUnits.IsEmpty() &&
+                       (aKeyStringProp->Value() == "JT_PROP_MEASUREMENT_UNITS" ||
+                        aKeyStringProp->Value() == "JT_PROP_MEASUREMENT_UNITS::"))
+                myUnits = aStringProp->Value();
             }
           }//else
            //   cerr << "Unknown Property\n";

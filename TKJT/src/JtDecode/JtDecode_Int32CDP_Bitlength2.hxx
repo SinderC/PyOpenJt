@@ -25,7 +25,10 @@ class JtDecode_Int32CDP_Bitlength2 : public JtDecode_Int32CDP_Bits
 public:
 
   //! Initialize the bitlength 2 dedoder by reader.
-  JtDecode_Int32CDP_Bitlength2 (JtData_Reader& theReader) : JtDecode_Int32CDP_Bits (theReader) {}
+  //! JT 10 (ISO 14306-4 Annex C, BitLengthCodec3T) stores min/max/mean as 4-bit "nibbler"
+  //! values and uses fixed 4-bit block headers instead of JT 9's explicit bit counts.
+  JtDecode_Int32CDP_Bitlength2 (JtData_Reader& theReader, bool theIsJt10 = false)
+    : JtDecode_Int32CDP_Bits (theReader), myIsJt10 (theIsJt10) {}
 
 protected:
 
@@ -34,6 +37,11 @@ protected:
 
   Standard_EXPORT void decodeVariableWidth (int32_t* theResultPtr, int32_t* theResultEnd);
   Standard_EXPORT void decodeFixedWidth    (int32_t* theResultPtr, int32_t* theResultEnd);
+
+  //! Read a sign-extended value stored as 4-bit nibbles, each followed by a "more" bit.
+  int32_t readNibbler();
+
+  bool myIsJt10;
 };
 
 #endif

@@ -30,7 +30,7 @@ Standard_Boolean JtNode_MetaData::Read (JtData_Reader& theReader)
 {
   Jt_I16 aVersion;
   return JtNode_Group::Read (theReader)
-      && theReader.ReadI16  (aVersion);
+      && theReader.ReadVersion (aVersion);
 }
 
 //=======================================================================

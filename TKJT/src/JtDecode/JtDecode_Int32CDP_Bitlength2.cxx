@@ -16,6 +16,9 @@
 
 #include <JtDecode_Int32CDP_Bitlength2.hxx>
 
+#include <algorithm>
+#include <cstddef>
+
 void JtDecode_Int32CDP_Bitlength2::decode (int32_t* theResultPtr, int32_t* theResultEnd)
 {
   // Analyze the variable-width tag
@@ -25,8 +28,39 @@ void JtDecode_Int32CDP_Bitlength2::decode (int32_t* theResultPtr, int32_t* theRe
     decodeFixedWidth    (theResultPtr, theResultEnd);
 }
 
+int32_t JtDecode_Int32CDP_Bitlength2::readNibbler()
+{
+  uint32_t aValue = 0;
+  unsigned aShift = 0;
+  do
+  {
+    const uint32_t aNibble = ReadU32 (4);
+    if (aShift < 32)
+      aValue |= aNibble << aShift;
+    aShift += 4;
+  }
+  while (ReadBit());
+
+  // sign-extend from the number of bits read
+  if (aShift < 32)
+    return static_cast<int32_t> (aValue << (32 - aShift)) >> (32 - aShift);
+  return static_cast<int32_t> (aValue);
+}
+
 void JtDecode_Int32CDP_Bitlength2::decodeFixedWidth (int32_t* theResultPtr, int32_t* theResultEnd)
 {
+  if (myIsJt10)
+  {
+    const int32_t aMin = readNibbler();
+    const int32_t aMax = readNibbler();
+    unsigned aFieldWidth = 0; // bits in the unsigned range
+    for (uint32_t aRange = static_cast<uint32_t> (aMax) - static_cast<uint32_t> (aMin); aRange; aRange >>= 1)
+      aFieldWidth++;
+    while (theResultPtr < theResultEnd)
+      *theResultPtr++ = static_cast<int32_t> (ReadU32Or0 (aFieldWidth) + static_cast<uint32_t> (aMin));
+    return;
+  }
+
   // Read the min and max symbols from the stream
   unsigned aMinBits = ReadU32 (6); // number of bits in the minimum symbol
   unsigned aMaxBits = ReadU32 (6); // number of bits in the maximum symbol
@@ -58,9 +92,20 @@ void JtDecode_Int32CDP_Bitlength2::decodeFixedWidth (int32_t* theResultPtr, int3
 void JtDecode_Int32CDP_Bitlength2::decodeVariableWidth (int32_t* theResultPtr, int32_t* theResultEnd)
 {
   // Read parameters
-  int32_t  aMean         = ReadI32 (32);  // mean value
-  unsigned aChgWidthBits = ReadU32 (3);
-  unsigned aRunLenBits   = ReadU32 (3);
+  int32_t  aMean;
+  unsigned aChgWidthBits, aRunLenBits;
+  if (myIsJt10)
+  {
+    aMean         = readNibbler();
+    aChgWidthBits = 4;
+    aRunLenBits   = 4;
+  }
+  else
+  {
+    aMean         = ReadI32 (32);
+    aChgWidthBits = ReadU32 (3);
+    aRunLenBits   = ReadU32 (3);
+  }
 
   signed aMaxDecr = -(1 << (aChgWidthBits - 1));     // -ve number
   signed aMaxIncr =  (1 << (aChgWidthBits - 1)) - 1; // +ve number
@@ -82,7 +127,7 @@ void JtDecode_Int32CDP_Bitlength2::decodeVariableWidth (int32_t* theResultPtr, i
 
     // read the run length
     uint32_t aRunLen = ReadU32 (aRunLenBits);
-    int32_t* aRunEnd = theResultPtr + aRunLen;
+    int32_t* aRunEnd = theResultPtr + std::min<ptrdiff_t> (aRunLen, theResultEnd - theResultPtr);
 
     // check if the field width is positive
     if (aFieldWidth > 0)

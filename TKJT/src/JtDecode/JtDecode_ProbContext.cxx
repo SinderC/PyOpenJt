@@ -42,6 +42,35 @@ Standard_Boolean JtDecode_ProbContextI32::ReadMk2 (JtDecode_BitReader::Raw& theR
   return read (theReader, 16, 6, 6, 6, 0, 32);
 }
 
+Standard_Boolean JtDecode_ProbContextI32::ReadJt10 (JtDecode_BitReader::Raw& theReader)
+{
+  // entry count{16}, occurrence count bits{6}, value bits{7}, min value{32}
+  if (!theReader.Load (16 + 6 + 7 + 32))
+    return Standard_False;
+
+  unsigned anEntryCount = theReader.ReadU32Or0 (16);
+  unsigned aOccBits     = theReader.ReadU32Or0 (6);
+  unsigned aValBits     = theReader.ReadU32Or0 (7);
+  int32_t  aMinValue    = theReader.ReadI32Or0 (32);
+
+  // entries: escape flag{1}, occurrence count, associated value - min value
+  if (!theReader.Load (anEntryCount * (1 + aOccBits + aValBits)))
+    return Standard_False;
+
+  myEntries.Allocate (anEntryCount);
+  myTotalCount = 0;
+  for (Standard_Size i = 0; i < anEntryCount; i++)
+  {
+    Entry& anEntry = myEntries[i];
+    anEntry.symbol          = theReader.ReadU32Or0 (1) ? -2 : 0; // -2 marks the escape symbol
+    anEntry.occCount        = theReader.ReadU32Or0 (aOccBits);
+    anEntry.associatedValue = theReader.ReadU32Or0 (aValBits) + aMinValue;
+    anEntry.nextContext     = 0;
+    myTotalCount += anEntry.occCount;
+  }
+  return Standard_True;
+}
+
 Standard_Boolean JtDecode_ProbContextI32::read (JtDecode_BitReader::Raw& theReader,
                                                 const unsigned theEntryCountWidth,
                                                 const unsigned theSymBitsNumWidth,
