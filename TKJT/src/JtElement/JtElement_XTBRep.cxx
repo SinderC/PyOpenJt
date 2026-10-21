@@ -30,6 +30,23 @@ IMPLEMENT_OBJECT_CLASS(JtElement_XTBRep, "XT B-Rep Object",
 //=======================================================================
 Standard_Boolean JtElement_XTBRep::Read (JtData_Reader& theReader)
 {
+  // JT 10: 16-bit version, and one more byte after the build number.
+  if (theReader.Model()->MajorVersion() >= 10)
+  {
+    Jt_I16 aVersion;
+    Jt_U8  aReserved;
+    if (!theReader.ReadI16 (aVersion)
+     || !theReader.ReadI32 (myPKMajorVersion)
+     || !theReader.ReadI32 (myPKMinorVersion)
+     || !theReader.ReadI32 (myPKBuild)
+     || !theReader.ReadU8 (aReserved))
+    {
+      return Standard_False;
+    }
+    myVersion = aVersion;
+    return theReader.ReadVec (myData);
+  }
+
   if (!JtData_Object::Read (theReader)
    || !theReader.ReadI32 (myVersion)
    || !theReader.ReadI32 (myPKMajorVersion)
