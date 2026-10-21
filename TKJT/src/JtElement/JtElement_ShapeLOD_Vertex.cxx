@@ -232,8 +232,8 @@ Standard_Integer JtElement_ShapeLOD_Vertex::Dump (Standard_OStream& theStream) c
 //purpose  : Read Vertex Shape LOD Data collection
 //=======================================================================
 Standard_Boolean JtElement_ShapeLOD_Vertex::readVertexShapeLODData (
-  JtData_Reader&   theReader,
-  Standard_Boolean theIsTriStripSet)
+  JtData_Reader& theReader,
+  ShapeKind      theKind)
 {
   myIndices.Free();
   myVertices.Free();
@@ -274,7 +274,10 @@ Standard_Boolean JtElement_ShapeLOD_Vertex::readVertexShapeLODData (
     // type ID, base type, object ID). ISO 14306-4 does not describe it; seen in NX-written files.
     if (theReader.Model()->MajorVersion() >= 10)
     {
-      static const Jt_GUID aTopoMeshGUID ("f830a5ad-be4c-4fbc-9b-5f-b9-26-92-78-d2-e1");
+      static const Jt_GUID aTopologicallyCompressedGUID ("f830a5ad-be4c-4fbc-9b-5f-b9-26-92-78-d2-e1");
+      static const Jt_GUID aCompressedRepV1GUID         ("11c12d32-38f9-45ba-93-ba-66-f9-d5-38-dd-fb");
+      const Jt_GUID&       aTopoMeshGUID = theKind == ShapeKind_PolylineSet ? aCompressedRepV1GUID
+                                                                            : aTopologicallyCompressedGUID;
       Jt_I32  aLength, anObjectID;
       Jt_GUID aGUID;
       Jt_U8   aBaseType;
@@ -296,8 +299,10 @@ Standard_Boolean JtElement_ShapeLOD_Vertex::readVertexShapeLODData (
       return Standard_False;
     }
 
-    if (theIsTriStripSet)
+    if (theKind == ShapeKind_TriStripSet)
       return readTopologicallyCompressedData (theReader);
+    else if (theKind == ShapeKind_PolylineSet)
+      return readCompressedPolylineData (theReader);
     else
       // TODO: Read TopoMesh Compressed Rep Data
       return Standard_True;
@@ -636,5 +641,101 @@ Standard_Boolean JtElement_ShapeLOD_Vertex::readTopologicallyCompressedData (JtD
   }
 
   // Success
+  return Standard_True;
+}
+
+//=======================================================================
+//function : readCompressedPolylineData
+//purpose  : Read the TopoMesh Compressed Rep Data V1 of a polyline set (ISO 14306-3 7.2.2.4): the
+//           polylines as runs of vertex list indices, and the unique vertex coordinates. The
+//           attributes of the vertices (normals, colours, ...) are not read.
+//=======================================================================
+Standard_Boolean JtElement_ShapeLOD_Vertex::readCompressedPolylineData (JtData_Reader& theReader)
+{
+  Jt_I32 aNbFaceGroups, aNbPrimitives, aNbVertexIdx;
+  if (!theReader.ReadI32 (aNbFaceGroups)
+   || !theReader.ReadI32 (aNbPrimitives)
+   || !theReader.ReadI32 (aNbVertexIdx))
+    return Standard_False;
+
+  // Face group start indices (not needed), primitive start indices in the vertex list, and
+  // the vertex list: one index per vertex of each primitive into the unique vertex coordinates.
+  // The three are Lag1 predicted.
+  Jt_VecI32 aFaceGroups, aPrimitives, aVertexList;
+  Jt_VecI32* aLists[3] = {&aFaceGroups, &aPrimitives, &aVertexList};
+  for (Jt_VecI32* aList : aLists)
+  {
+    JtDecode_Int32CDP aCodec;
+    if (!aCodec.Load2 (theReader))
+      return Standard_False;
+    *aList = aCodec.DecodeI32 (JtDecode_Unpack_Lag1);
+  }
+
+  // Hash, bindings, the number of vertex attribute records, the number of unique coordinates,
+  // how many vertex records use each of them, and its hash.
+  Jt_I32            aHash, aNbRecords, aNbUnique, aLengthsHash;
+  VertexBinding2    aBindings;
+  JtDecode_Int32CDP aLengthsCodec;
+  if (!theReader.ReadI32 (aHash)
+   || !aBindings.Read (theReader)
+   || !theReader.ReadI32 (aNbRecords)
+   || !theReader.ReadI32 (aNbUnique)
+   || !aLengthsCodec.Load2 (theReader))
+    return Standard_False;
+  Jt_VecI32 aLengths;
+  aLengths = aLengthsCodec.DecodeI32 (JtDecode_Unpack_Null);
+  if (!theReader.ReadI32 (aLengthsHash))
+    return Standard_False;
+
+  if (aNbUnique == 0)
+    return Standard_True;
+  if (aBindings.NbVertexCoordComponents() == 0)
+    return Standard_False;
+
+  JtDecode_VertexData::Handle anEncodedVertices = JtDecode_VertexData::LoadCompressedCoords (theReader);
+  if (!anEncodedVertices)
+    return Standard_False;
+  JtData_Parallel::TaskGroup aDecodeTasks;
+  aDecodeTasks.Run (VertexDataDecodeTask (anEncodedVertices, myVertices));
+  aDecodeTasks.Wait();
+
+  // The vertex list indexes vertex records; each unique coordinate serves as many consecutive records
+  // as its length says.
+  static const size_t aMaxRecords = 1 << 26;
+  std::vector<int32_t> aRecordCoords;
+  for (int32_t u = 0; u < aLengths.Count(); ++u)
+  {
+    if (aLengths[u] < 0 || aRecordCoords.size() + aLengths[u] > aMaxRecords)
+      return Standard_False;
+    aRecordCoords.insert (aRecordCoords.end(), aLengths[u], u);
+  }
+
+  // A segment between each two consecutive vertices of a polyline
+  const int32_t    aNbVertexRecords = (int32_t)aRecordCoords.size();
+  Standard_Boolean isValid          = aPrimitives.Count() > 1;
+  Standard_Size    aNbSegments      = 0;
+  for (int32_t aPrim = 0; isValid && aPrim + 1 < aPrimitives.Count(); ++aPrim)
+  {
+    const int32_t aFirst = aPrimitives[aPrim], aLast = aPrimitives[aPrim + 1];
+    isValid = aFirst >= 0 && aFirst <= aLast && aLast <= aVertexList.Count();
+    if (isValid && aLast > aFirst)
+      aNbSegments += aLast - aFirst - 1;
+  }
+  if (!isValid)
+    return Standard_False;
+
+  myIndices.Allocate (aNbSegments * 2);
+  IndicesVec::SizeType anOut = 0;
+  for (int32_t aPrim = 0; aPrim + 1 < aPrimitives.Count(); ++aPrim)
+  {
+    for (int32_t i = aPrimitives[aPrim]; i + 1 < aPrimitives[aPrim + 1]; ++i)
+    {
+      const int32_t aFrom = aVertexList[i], aTo = aVertexList[i + 1];
+      if (aFrom < 0 || aFrom >= aNbVertexRecords || aTo < 0 || aTo >= aNbVertexRecords)
+        return Standard_False;
+      myIndices[anOut++] = aRecordCoords[aFrom];
+      myIndices[anOut++] = aRecordCoords[aTo];
+    }
+  }
   return Standard_True;
 }

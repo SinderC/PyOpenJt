@@ -93,7 +93,8 @@ public:
   //! Dump this entity.
   Standard_EXPORT Standard_Integer Dump (Standard_OStream& S) const Standard_OVERRIDE;
 
-  //! Indices into the vertex parameters arrays.
+  //! Indices into the vertex parameters arrays: three per triangle; for a polyline set, two per line
+  //! segment (the segments of all polylines in order).
   const IndicesVec& Indices()  const { return myIndices; }
 
   //! Vertex coordinates.
@@ -109,12 +110,21 @@ protected:
   class VertexDataDecodeTask;
   class MeshDecodeTask;
 
+  //! What the primitives of a shape are; JT 9+ stores them in a different TopoMesh element for each.
+  enum ShapeKind
+  {
+    ShapeKind_Other,
+    ShapeKind_TriStripSet,
+    ShapeKind_PolylineSet
+  };
+
   Standard_Boolean readVertexShapeLODData (
-    JtData_Reader&   theReader,
-    Standard_Boolean theIsTriStripSet = Standard_False);
+    JtData_Reader& theReader,
+    ShapeKind      theKind = ShapeKind_Other);
 
   Standard_Boolean readVertexBasedShapeCompressedRepData (JtData_Reader& theReader);
   Standard_Boolean readTopologicallyCompressedData       (JtData_Reader& theReader);
+  Standard_Boolean readCompressedPolylineData            (JtData_Reader& theReader);
 
 protected:
   IndicesVec myIndices;  //!< Indices into the vertex parameters arrays

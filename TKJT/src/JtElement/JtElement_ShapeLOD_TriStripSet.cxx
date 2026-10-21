@@ -29,7 +29,7 @@ IMPLEMENT_OBJECT_CLASS(JtElement_ShapeLOD_TriStripSet, "Tri-Strip Set Shape LOD 
 Standard_Boolean JtElement_ShapeLOD_TriStripSet::Read (JtData_Reader& theReader)
 {
   Jt_I16 aVersion;
-  if (!readVertexShapeLODData (theReader, Standard_True)
+  if (!readVertexShapeLODData (theReader, ShapeKind_TriStripSet)
    || !theReader.ReadVersion (aVersion))
     return Standard_False;
 
